@@ -234,10 +234,14 @@ class ResourceCache(Base):
     __tablename__ = "resource_cache"
 
     id = Column(Integer, primary_key=True, index=True)
-    cache_key = Column(String(64), unique=True, index=True, nullable=False)
+    cache_key = Column(String(64), index=True, nullable=False) # No longer strictly unique across the whole table
     query_text = Column(Text, nullable=False)
     source_type = Column(String, nullable=False)   # "tavily" or "youtube"
     language = Column(String, nullable=False, server_default="english")
     resources = Column(Text, nullable=False)        # JSON array of {type, title, platform, link}
+    
+    target_role = Column(String, nullable=False, index=True, server_default="")
+    query_embedding = Column(Vector(1024), nullable=True)  # null permitted for legacy rows
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

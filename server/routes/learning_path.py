@@ -4,7 +4,7 @@ from sqlalchemy import func, text
 from db.database import get_db
 from db.models import UserDB, UserProfile, LearningPath, PhaseProgress, TestAttempt, ActiveTest, MarketInsightsCache, WeeklyTaskProgress
 from auth import get_current_user
-from rag.retriever import clean_llm_json, retrieve_videos, retrieve_articles
+from rag.retriever import clean_llm_json
 from rag.phase_query_generator import generate_phase_queries
 from market.role_matcher import match_role_to_soc
 from market.skill_extractor import extract_top_skills, extract_top_knowledge, extract_top_activities
@@ -140,7 +140,7 @@ async def generate_learning_path(
 You are an AI system that generates structured learning paths.
 
 CRITICAL INSTRUCTIONS:
-- SKILL PROFICIENCY CALIBRATION: Each of the user's existing skills has a proficiency level (beginner, intermediate, advanced). Use these levels to calibrate the learning path depth per skill — skip fundamentals for advanced skills, provide deeper coverage for beginner skills, and bridge gaps for intermediate skills. Do NOT re-teach topics the user is already advanced in. Instead, focus on applying those advanced skills in the target role context.
+- TARGET ROLE FOCUS & EXISTING SKILLS: The learning path MUST be strictly focused on the skills required for the target role. The user's existing skills are provided ONLY to avoid teaching what they already know. If an existing skill is actually required for the target role, use its proficiency to calibrate the depth (skip fundamentals if advanced). However, if an existing skill is IRRELEVANT to the target role (e.g. React/Node for an AI Engineer), YOU MUST COMPLETELY IGNORE IT. Do NOT include irrelevant skills or topics in the path just because the user has them.
 - The generated path MUST fit exactly within the 'Target Timeline' specified by the user (e.g., if target is 3 months, total duration must be approx 3 months). Adjust the scope and depth of modules to fit this constraint.
 - EDUCATIONAL CALIBRATION: Use the user's education level to set the starting depth of the path.
 - CAREER TRANSITION: If the user is currently employed or self-employed and their current role differs from the target role, this is a CAREER TRANSITION.
@@ -164,8 +164,8 @@ USER DETAILS:
 {f'- Current Role: {profile.current_role}' if profile.current_role else ''}
 {f'- Current Industry: {profile.current_industry}' if profile.current_industry else ''}
 - Location: {profile.location}
-- Existing Skills (with proficiency): {', '.join(skills_with_proficiency) if skills_with_proficiency else 'None'}
-- Preferred Industries: {', '.join(industries) if industries else 'Not specified'}
+- Existing Skills (with proficiency): {', '.join(skills_with_proficiency) if skills_with_proficiency else 'None'} Us
+ - Preferred Industries: {', '.join(industries) if industries else 'Not specified'}
 - Learning Pace: {profile.learning_pace}
 - Hours per Week: {profile.hours_per_week}
 - Instruction Language: {instruction_language}
@@ -267,91 +267,15 @@ CRITICAL CONTENT REQUIREMENTS:
     )
     print(f"[generate-path] Stage 2 (query generation): {time.time() - t_stage2:.3f}s")
 
+    # ==================================================
+    # STAGE 3: Fetch resources for all phases (3-layer batch retriever)
+    # L0: in-memory cache  →  L1: ResourceCache DB (pgvector)  →  L2: Tavily/YouTube
+    # ==================================================
     t_stage3 = time.time()
-    yt_semaphore = asyncio.Semaphore(5)
-
-    # DB-backed resource cache — batch approach uses exactly 2 DB sessions
-    # (one for batch lookup, one for batch store) instead of one per query.
-    from services.resource_cache_service import (
-        _build_cache_key,
-        batch_get_cached_resources,
-        batch_store_cached_resources,
+    from rag.batch_retriever import batch_retrieve_phase_resources
+    all_phase_resources = await batch_retrieve_phase_resources(
+        phase_queries, instruction_language, profile.desired_role or ""
     )
-
-    # 3a. Collect ALL (source_type, query, language) tuples across all phases
-    query_items: list[tuple[int, str, str, str, str]] = []
-    #                      phase_idx, task_type, source_type, query, language
-    for phase_idx in range(len(phases)):
-        queries = phase_queries.get(phase_idx, {})
-        for wq in queries.get("web_queries", []):
-            query_items.append((phase_idx, "web", "tavily", wq, "english"))
-        for yq in queries.get("youtube_queries", []):
-            query_items.append((phase_idx, "yt", "youtube", yq, instruction_language))
-
-    # 3b. ONE DB lookup for all cache keys
-    cache_lookup_items = [(st, q, lang) for _, _, st, q, lang in query_items]
-    cached_results = await asyncio.to_thread(
-        batch_get_cached_resources, cache_lookup_items
-    )
-
-    # 3c. Dispatch live API calls ONLY for cache misses
-    async def _fetch_articles(q: str) -> list[dict]:
-        return await retrieve_articles(q, max_results=2)
-
-    async def _fetch_videos(q: str, lang: str) -> list[dict]:
-        async with yt_semaphore:
-            return await retrieve_videos(q, language=lang, max_results=2)
-
-    # (phase_idx, task_type, source_type, query, language, asyncio.Task | cached_list)
-    task_map: list[tuple[int, str, str, str, str, object]] = []
-
-    for phase_idx, task_type, source_type, query, language in query_items:
-        cache_key = _build_cache_key(source_type, query, language)
-        hit = cached_results.get(cache_key)
-        if hit is not None:
-            # Cache hit — no API call needed
-            task_map.append((phase_idx, task_type, source_type, query, language, hit))
-        else:
-            # Cache miss — dispatch live fetch
-            if task_type == "web":
-                future = asyncio.ensure_future(_fetch_articles(query))
-            else:
-                future = asyncio.ensure_future(_fetch_videos(query, language))
-            task_map.append((phase_idx, task_type, source_type, query, language, future))
-
-    # Wait for live fetches only (cached entries are already resolved)
-    live_tasks = [entry[5] for entry in task_map if asyncio.isfuture(entry[5])]
-    if live_tasks:
-        await asyncio.gather(*live_tasks, return_exceptions=True)
-
-    # 3d. Collect results per phase + gather items to store
-    all_phase_resources: list[list[dict]] = [[] for _ in phases]
-    to_store: list[tuple[str, str, str, list[dict]]] = []
-
-    for phase_idx, task_type, source_type, query, language, result_or_future in task_map:
-        try:
-            if asyncio.isfuture(result_or_future):
-                result = result_or_future.result()
-                # Schedule for batch DB store (only fresh fetches)
-                if result:
-                    to_store.append((source_type, query, language, result))
-            else:
-                result = result_or_future  # already a list from cache
-
-            if result:
-                all_phase_resources[phase_idx].extend(result)
-        except Exception as e:
-            print(f"[Stage3] Phase {phase_idx} {task_type} error: {e}")
-
-    # 3e. ONE DB store for all fresh results
-    if to_store:
-        await asyncio.to_thread(batch_store_cached_resources, to_store)
-
-    for pi in range(len(phases)):
-        resources = all_phase_resources[pi]
-        vid_count = len([r for r in resources if r.get("type") == "Video"])
-        print(f"[Stage3] Phase {pi}: {len(resources)} resources ({vid_count} videos)")
-
     print(f"[generate-path] Stage 3 (resource fetching): {time.time() - t_stage3:.3f}s")
 
     # ==================================================

@@ -12,7 +12,7 @@ Flow per query in batch_retrieve:
 import os
 import json
 from datetime import datetime, timedelta, timezone
-from mistralai import Mistral
+from mistralai.client import Mistral
 from sqlalchemy import text
 from dotenv import load_dotenv
 
