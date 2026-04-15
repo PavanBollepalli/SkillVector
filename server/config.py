@@ -4,6 +4,8 @@ ONET_CACHE = {}
 
 MARKET_INSIGHTS_TTL_HOURS = 24  # Cache market insights for 24 hours
 RESOURCE_CACHE_TTL_DAYS = 30    # Cache YouTube/Tavily resources for 30 days
+EXA_CACHE_TTL_DAYS = 15         # Cache Exa market data for 15 days (job market changes slowly)
+ROLE_CONTEXT_CACHE_TTL_DAYS = 15  # Cache O*NET + Exa role context for 15 days
 
 # RAG pipeline limits
 RAG_MAX_SOURCES = 40

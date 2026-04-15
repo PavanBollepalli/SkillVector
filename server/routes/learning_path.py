@@ -10,7 +10,8 @@ from market.role_matcher import match_role_to_soc
 from market.skill_extractor import extract_top_skills, extract_top_knowledge, extract_top_activities
 from services.cache_service import invalidate_market_insights_cache
 from services.exa_market_service import fetch_realtime_market_data
-from config import ONET_CACHE, LLM_MODEL, LLM_TEMPERATURE, TEST_PASSING_SCORE
+from services.role_context_cache import get_cached_role_context, store_role_context
+from config import ONET_CACHE, LLM_MODEL, LLM_TEMPERATURE, TEST_PASSING_SCORE, EXA_CACHE_TTL_DAYS
 from groq import Groq
 import asyncio
 import os
@@ -100,34 +101,51 @@ async def generate_learning_path(
     instruction_language = profile.language or "English"
 
     # ==================================================
-    # O*NET + EXA (REAL-TIME) ROLE CONTEXT
+    # O*NET + EXA (REAL-TIME) ROLE CONTEXT - WITH CACHING
     # ==================================================
     t_onet = time.time()
+
+    # Initialize variables
     role_context = ""
     onet_required_skills = []
-    if "occupations" in ONET_CACHE:
-        onet_match = match_role_to_soc(profile.desired_role, ONET_CACHE["occupations"])
-        if onet_match:
-            matched_soc, matched_title = onet_match
-            knowledge_list = extract_top_knowledge(matched_soc, ONET_CACHE["knowledge"], top_n=8)
-            activity_list = extract_top_activities(matched_soc, ONET_CACHE["activities"], top_n=8)
-            onet_required_skills = extract_top_skills(matched_soc, ONET_CACHE["tech_skills"], top_n=15)
-            parts = [f"O*NET Occupational Profile for \"{matched_title}\" (SOC {matched_soc}):"]
-            if knowledge_list:
-                parts.append("Key Knowledge Domains: " + "; ".join(knowledge_list))
-            if activity_list:
-                parts.append("Core Work Activities: " + "; ".join(activity_list))
-            if onet_required_skills:
-                parts.append("Required Technologies (O*NET): " + ", ".join(onet_required_skills))
-            role_context = "\n".join(parts)
+    exa_skills = []
 
-    # Fetch Exa real-time training skills and merge with O*NET for learning path
-    exa_data = fetch_realtime_market_data(profile.desired_role or "")
-    exa_skills = exa_data.get("training_skills", []) or []
-    combined_required_skills = list(dict.fromkeys(exa_skills + onet_required_skills))  # Exa first, dedupe
+    # Check role context cache first (15 days TTL)
+    cached_context = get_cached_role_context(profile.desired_role or "")
+    if cached_context:
+        role_context = cached_context["role_context"]
+        combined_required_skills = cached_context["required_skills"]
+        print(f"[generate-path] role context cache HIT for user {current_user.id} in {time.time() - t_onet:.3f}s")
+    else:
+        # Build role context from O*NET
+        if "occupations" in ONET_CACHE:
+            onet_match = match_role_to_soc(profile.desired_role, ONET_CACHE["occupations"])
+            if onet_match:
+                matched_soc, matched_title = onet_match
+                knowledge_list = extract_top_knowledge(matched_soc, ONET_CACHE["knowledge"], top_n=8)
+                activity_list = extract_top_activities(matched_soc, ONET_CACHE["activities"], top_n=8)
+                onet_required_skills = extract_top_skills(matched_soc, ONET_CACHE["tech_skills"], top_n=15)
+                parts = [f"O*NET Occupational Profile for \"{matched_title}\" (SOC {matched_soc}):"]
+                if knowledge_list:
+                    parts.append("Key Knowledge Domains: " + "; ".join(knowledge_list))
+                if activity_list:
+                    parts.append("Core Work Activities: " + "; ".join(activity_list))
+                if onet_required_skills:
+                    parts.append("Required Technologies (O*NET): " + ", ".join(onet_required_skills))
+                role_context = "\n".join(parts)
 
-    if exa_skills:
-        role_context = (role_context + "\n" if role_context else "") + "Real-time Market Skills (Exa): " + ", ".join(exa_skills)
+        # Fetch Exa real-time training skills and merge with O*NET
+        exa_data = fetch_realtime_market_data(profile.desired_role or "")
+        exa_skills = exa_data.get("training_skills", []) or []
+        combined_required_skills = list(dict.fromkeys(exa_skills + onet_required_skills))  # Exa first, dedupe
+
+        if exa_skills:
+            role_context = (role_context + "\n" if role_context else "") + "Real-time Market Skills (Exa): " + ", ".join(exa_skills)
+
+        # Store in cache for next time (no expiry needed - role context is stable)
+        store_role_context(profile.desired_role or "", role_context, combined_required_skills)
+
+        print(f"[generate-path] role context cache MISS for user {current_user.id} - stored in cache")
 
     print(f"[generate-path] O*NET + Exa lookup:  {time.time() - t_onet:.3f}s")
 
@@ -240,15 +258,15 @@ CRITICAL CONTENT REQUIREMENTS:
             "raw_output": content
         }
 
-    # Post-process: ensure O*NET required skills are distributed across phases
-    if onet_required_skills and path_json.get("learning_path"):
+    # Post-process: ensure required skills (O*NET + Exa) are distributed across phases
+    if combined_required_skills and path_json.get("learning_path"):
         phases = path_json["learning_path"]
         all_phase_skills_lower = set()
         for phase in phases:
             for sk in phase.get("skills", []):
                 all_phase_skills_lower.add(sk.lower().strip())
 
-        missing = [sk for sk in onet_required_skills if sk.lower().strip() not in all_phase_skills_lower]
+        missing = [sk for sk in combined_required_skills if sk.lower().strip() not in all_phase_skills_lower]
         if missing:
             for i, sk in enumerate(missing):
                 target_phase = phases[i % len(phases)]

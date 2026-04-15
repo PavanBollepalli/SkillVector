@@ -239,9 +239,36 @@ class ResourceCache(Base):
     source_type = Column(String, nullable=False)   # "tavily" or "youtube"
     language = Column(String, nullable=False, server_default="english")
     resources = Column(Text, nullable=False)        # JSON array of {type, title, platform, link}
-    
+
     target_role = Column(String, nullable=False, index=True, server_default="")
     query_embedding = Column(Vector(1024), nullable=True)  # null permitted for legacy rows
 
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ExaMarketCache(Base):
+    """Caches Exa API market data per role.
+    Exa data changes slowly (job market data is stable), so we cache for 15 days.
+    Keyed by role name.
+    """
+    __tablename__ = "exa_market_cache"
+
+    id = Column(Integer, primary_key=True, index=True)
+    role = Column(String(255), unique=True, index=True, nullable=False)
+    data = Column(Text, nullable=False)  # Full JSON: {training_skills, growth_rate, etc.}
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class RoleContextCache(Base):
+    """Caches O*NET + Exa role context for faster path generation.
+    Pre-computes O*NET lookup + Exa data + extracted skills.
+    TTL: 15 days via database query filter.
+    """
+    __tablename__ = "role_context_cache"
+
+    id = Column(Integer, primary_key=True, index=True)
+    role = Column(String(255), unique=True, index=True, nullable=False)
+    role_context = Column(Text, nullable=False)  # Full context string for LLM
+    required_skills = Column(Text, nullable=False)  # JSON array of skills
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

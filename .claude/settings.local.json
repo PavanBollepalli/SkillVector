@@ -5,7 +5,8 @@
       "WebFetch(domain:sl.bing.net)",
       "WebFetch(domain:images.pexels.com)",
       "Bash(npm install:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(ls -la \"D:\\\\python\\\\SkillVector\\\\SkillVector\\\\frontend\\\\app\\\\\\(landing\\)\\\\_components\\\\*.tsx\")"
     ]
   }
 }
