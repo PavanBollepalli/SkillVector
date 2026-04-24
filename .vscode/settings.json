@@ -1,9 +1,0 @@
-{
-    "chat.tools.terminal.autoApprove": {
-        "/^python -c \"import py_compile; py_compile\\.compile\\('main\\.py', doraise=True\\); print\\('OK'\\)\"$/": {
-            "approve": true,
-            "matchCommandLine": true
-        },
-        "venv\\Scripts\\python.exe": true
-    }
-}

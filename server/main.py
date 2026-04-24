@@ -1,17 +1,21 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from middlewares.latency import latency_middleware
 from db.database import init_db
 from market.load_onet import load_onet_data
 from config import ONET_CACHE
 from dotenv import load_dotenv
 import logging
 import os
-
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-
+logger.propagate=False
 # Route imports
 from routes.auth import router as auth_router
 from routes.profile import router as profile_router
@@ -62,6 +66,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+app.add_middleware(
+    latency_middleware
 )
 
 # Include all routers
