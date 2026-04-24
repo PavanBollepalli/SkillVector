@@ -137,11 +137,7 @@ def resolve_user_learning_path(
     """
     user_link = get_user_learning_path_record(db, user_id)
     if user_link and user_link.canonical_path:
-        canonical = user_link.canonical_path
-        canonical.last_used_at = datetime.now(timezone.utc)
-        canonical.usage_count = (canonical.usage_count or 0) + 1
-        db.commit()
-        return json.loads(canonical.path_data)
+        return json.loads(user_link.canonical_path.path_data)
 
     legacy = db.query(LearningPath).filter(LearningPath.user_id == user_id).first()
     if legacy:
@@ -155,8 +151,6 @@ def resolve_user_learning_path(
         canonical = get_canonical_path_by_fingerprint(db, fingerprint)
         if canonical:
             _link_user_to_canonical(db, user_id, canonical)
-            canonical.last_used_at = datetime.now(timezone.utc)
-            canonical.usage_count = (canonical.usage_count or 0) + 1
             db.commit()
             return json.loads(canonical.path_data)
 

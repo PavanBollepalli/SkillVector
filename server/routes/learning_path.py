@@ -40,17 +40,31 @@ def _ensure_phase_progress(db: Session, user_id: int, path_json: dict) -> None:
 
 
 def _ensure_weekly_progress(db: Session, user_id: int, path_json: dict) -> None:
-    from utils.test_generator import initialize_weekly_task_progress
+    # Fast path: if any weekly rows exist for this user, assume initialized.
+    existing_any = db.query(WeeklyTaskProgress.id).filter(
+        WeeklyTaskProgress.user_id == user_id
+    ).first()
+    if existing_any:
+        return
 
+    # Initialize all phases in one transaction to avoid per-phase commit overhead.
+    rows_to_add: list[WeeklyTaskProgress] = []
     for phase_idx, phase in enumerate(path_json.get("learning_path", [])):
         num_weeks = phase.get("duration_weeks", len(phase.get("weekly_breakdown", [])))
-        if num_weeks > 0:
-            existing_weeks = db.query(WeeklyTaskProgress).filter(
-                WeeklyTaskProgress.user_id == user_id,
-                WeeklyTaskProgress.phase_index == phase_idx
-            ).count()
-            if existing_weeks == 0:
-                initialize_weekly_task_progress(user_id, phase_idx, num_weeks, db)
+        if num_weeks and num_weeks > 0:
+            for week_num in range(1, int(num_weeks) + 1):
+                rows_to_add.append(
+                    WeeklyTaskProgress(
+                        user_id=user_id,
+                        phase_index=phase_idx,
+                        week_number=week_num,
+                        is_completed=False,
+                    )
+                )
+
+    if rows_to_add:
+        db.add_all(rows_to_add)
+        db.commit()
 
 
 @router.get("/generate-path")
