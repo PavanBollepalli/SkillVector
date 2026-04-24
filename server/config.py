@@ -19,6 +19,9 @@ LLM_TEMPERATURE = 0.2
 PHASE_QUERY_MODEL = "llama-3.1-8b-instant"
 PHASE_RESOURCES_PER_TYPE = {"articles": 3, "books": 2, "videos": 3}
 
+# Shared learning path cache
+LEARNING_PATH_PROMPT_VERSION = 1
+
 # Test configuration
 TEST_PASSING_SCORE = 70  # percent
 TEST_QUESTIONS_COUNT = 15

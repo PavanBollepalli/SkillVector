@@ -1,12 +1,16 @@
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
-from db.models import LearningPath, MarketInsightsCache
+from db.models import MarketInsightsCache, PhaseProgress, WeeklyTaskProgress, ActiveTest
 from config import MARKET_INSIGHTS_TTL_HOURS
+from services.learning_path_store import clear_user_learning_path
 
 
 def invalidate_learning_path(user_id: int, db: Session):
-    """Deletes the existing learning path for a user to force regeneration."""
-    db.query(LearningPath).filter(LearningPath.user_id == user_id).delete()
+    """Removes a user's active path link and user-specific path state."""
+    clear_user_learning_path(db, user_id)
+    db.query(PhaseProgress).filter(PhaseProgress.user_id == user_id).delete()
+    db.query(WeeklyTaskProgress).filter(WeeklyTaskProgress.user_id == user_id).delete()
+    db.query(ActiveTest).filter(ActiveTest.user_id == user_id).delete()
     db.commit()
 
 

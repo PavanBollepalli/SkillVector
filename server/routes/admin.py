@@ -5,12 +5,13 @@ from typing import Optional
 from datetime import datetime, timedelta, timezone
 from db.database import get_db
 from db.models import (
-    UserDB, UserProfile, LearningPath, PhaseProgress, TestAttempt,
+    UserDB, UserProfile, PhaseProgress, TestAttempt,
     VideoAssignment, UserVideoAssignment, VideoProgress, AdminActivityLog, MarketInsightsCache
 )
 from auth import verify_password, create_access_token, get_current_user
 from dependencies import require_admin
 from services.admin_service import log_admin_action, extract_youtube_id
+from services.learning_path_store import resolve_user_learning_path
 import schemas.UserSchemas as schemas
 import json
 import os
@@ -62,7 +63,9 @@ async def admin_analytics(
     # Total counts
     total_users = db.query(func.count(UserDB.id)).scalar()
     total_profiles = db.query(func.count(UserProfile.id)).scalar()
-    total_paths = db.query(func.count(LearningPath.id)).scalar()
+    from db.models import UserLearningPath, CanonicalLearningPath
+    total_paths = db.query(func.count(UserLearningPath.id)).scalar()
+    total_canonical_paths = db.query(func.count(CanonicalLearningPath.id)).scalar()
     total_tests = db.query(func.count(TestAttempt.id)).scalar()
     total_videos = db.query(func.count(VideoAssignment.id)).filter(VideoAssignment.is_active == True).scalar()
 
@@ -136,6 +139,7 @@ async def admin_analytics(
             "total_users": total_users,
             "total_profiles": total_profiles,
             "total_paths": total_paths,
+            "total_canonical_paths": total_canonical_paths,
             "total_tests": total_tests,
             "total_videos": total_videos,
             "new_users_week": new_users_week,
@@ -192,7 +196,7 @@ async def admin_list_users(
     result = []
     for u in users:
         profile = db.query(UserProfile).filter(UserProfile.user_id == u.id).first()
-        path = db.query(LearningPath).filter(LearningPath.user_id == u.id).first()
+        path = resolve_user_learning_path(db, u.id)
 
         # Phase progress
         phases = db.query(PhaseProgress).filter(PhaseProgress.user_id == u.id).order_by(PhaseProgress.phase_index).all()
@@ -268,18 +272,12 @@ async def admin_get_user_detail(
         raise HTTPException(status_code=404, detail="User not found")
 
     profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
-    path = db.query(LearningPath).filter(LearningPath.user_id == user_id).first()
     phases = db.query(PhaseProgress).filter(PhaseProgress.user_id == user_id).order_by(PhaseProgress.phase_index).all()
     test_attempts = db.query(TestAttempt).filter(TestAttempt.user_id == user_id).order_by(desc(TestAttempt.created_at)).all()
     video_progress = db.query(VideoProgress).filter(VideoProgress.user_id == user_id).all()
 
     # Parse learning path
-    learning_path_data = None
-    if path:
-        try:
-            learning_path_data = json.loads(path.path_data)
-        except:
-            pass
+    learning_path_data = resolve_user_learning_path(db, user_id)
 
     return {
         "user": {

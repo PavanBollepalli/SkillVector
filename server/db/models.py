@@ -57,6 +57,35 @@ class LearningPath(Base):
     path_data = Column(String, nullable=False) # Stored as JSON string
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+
+class CanonicalLearningPath(Base):
+    __tablename__ = "canonical_learning_paths"
+
+    id = Column(Integer, primary_key=True, index=True)
+    path_fingerprint = Column(String(64), unique=True, index=True, nullable=False)
+    path_data = Column(Text, nullable=False)
+    prompt_version = Column(Integer, nullable=False, default=1)
+    llm_model = Column(String, nullable=False)
+    target_role = Column(String, nullable=False, index=True)
+    language = Column(String, nullable=False, index=True)
+    timeline = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+    usage_count = Column(Integer, default=0)
+
+
+class UserLearningPath(Base):
+    __tablename__ = "user_learning_paths"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, unique=True, index=True, nullable=False)
+    canonical_path_id = Column(Integer, sqlalchemy.ForeignKey("canonical_learning_paths.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    canonical_path = sqlalchemy.orm.relationship("CanonicalLearningPath")
+
 class PhaseProgress(Base):
     __tablename__ = "phase_progress"
     

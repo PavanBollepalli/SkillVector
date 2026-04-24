@@ -2,13 +2,19 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 from db.database import get_db
-from db.models import UserDB, UserProfile, LearningPath, PhaseProgress, TestAttempt, ActiveTest, MarketInsightsCache, WeeklyTaskProgress
+from db.models import UserDB, UserProfile, PhaseProgress, TestAttempt, ActiveTest, MarketInsightsCache, WeeklyTaskProgress
 from auth import get_current_user
 from rag.retriever import clean_llm_json
 from rag.phase_query_generator import generate_phase_queries
 from market.role_matcher import match_role_to_soc
 from market.skill_extractor import extract_top_skills, extract_top_knowledge, extract_top_activities
-from services.cache_service import invalidate_market_insights_cache
+from services.cache_service import invalidate_market_insights_cache, invalidate_learning_path
+from services.learning_path_store import (
+    build_path_fingerprint,
+    fingerprint_to_lock_key,
+    resolve_user_learning_path,
+    store_canonical_learning_path,
+)
 from services.exa_market_service import fetch_realtime_market_data
 from services.role_context_cache import get_cached_role_context, store_role_context
 from config import ONET_CACHE, LLM_MODEL, LLM_TEMPERATURE, TEST_PASSING_SCORE, EXA_CACHE_TTL_DAYS
@@ -21,6 +27,32 @@ import time
 router = APIRouter()
 
 
+def _ensure_phase_progress(db: Session, user_id: int, path_json: dict) -> None:
+    existing_progress = db.query(PhaseProgress).filter(
+        PhaseProgress.user_id == user_id
+    ).count()
+
+    if existing_progress == 0:
+        from utils.test_generator import initialize_phase_progress
+        num_phases = len(path_json.get("learning_path", []))
+        if num_phases > 0:
+            initialize_phase_progress(user_id, num_phases, db)
+
+
+def _ensure_weekly_progress(db: Session, user_id: int, path_json: dict) -> None:
+    from utils.test_generator import initialize_weekly_task_progress
+
+    for phase_idx, phase in enumerate(path_json.get("learning_path", [])):
+        num_weeks = phase.get("duration_weeks", len(phase.get("weekly_breakdown", [])))
+        if num_weeks > 0:
+            existing_weeks = db.query(WeeklyTaskProgress).filter(
+                WeeklyTaskProgress.user_id == user_id,
+                WeeklyTaskProgress.phase_index == phase_idx
+            ).count()
+            if existing_weeks == 0:
+                initialize_weekly_task_progress(user_id, phase_idx, num_weeks, db)
+
+
 @router.get("/generate-path")
 async def generate_learning_path(
     db: Session = Depends(get_db),
@@ -31,25 +63,16 @@ async def generate_learning_path(
     if not profile:
         raise HTTPException(status_code=400, detail="User profile not found. Please complete your profile first.")
 
+    fingerprint = build_path_fingerprint(profile)
+
     # Return cached path if exists
     t_cache = time.time()
-    existing_path = db.query(LearningPath).filter(LearningPath.user_id == current_user.id).first()
+    existing_path = resolve_user_learning_path(db, current_user.id, profile, fingerprint)
     if existing_path:
         print(f"[generate-path] DB cache HIT for user {current_user.id} in {time.time() - t_cache:.3f}s")
-        path_json = json.loads(existing_path.path_data)
-
-        # Ensure phase progress is initialized (even for cached paths)
-        existing_progress = db.query(PhaseProgress).filter(
-            PhaseProgress.user_id == current_user.id
-        ).count()
-
-        if existing_progress == 0:
-            from utils.test_generator import initialize_phase_progress
-            num_phases = len(path_json.get("learning_path", []))
-            if num_phases > 0:
-                initialize_phase_progress(current_user.id, num_phases, db)
-
-        return path_json
+        _ensure_phase_progress(db, current_user.id, existing_path)
+        _ensure_weekly_progress(db, current_user.id, existing_path)
+        return existing_path
 
     t_total = time.time()
     print(f"[generate-path] no cached path for user {current_user.id} — starting full generation")
@@ -58,8 +81,8 @@ async def generate_learning_path(
     # commit or rollback, so no explicit unlock is needed and it is safe
     # with connection pooling.
     lock_acquired = db.execute(
-        text("SELECT pg_try_advisory_xact_lock(:uid)"),
-        {"uid": current_user.id}
+        text("SELECT pg_try_advisory_xact_lock(:lock_key)"),
+        {"lock_key": fingerprint_to_lock_key(fingerprint)}
     ).scalar()
 
     if not lock_acquired:
@@ -68,20 +91,11 @@ async def generate_learning_path(
         for _ in range(60):               # max ~30s wait
             await asyncio.sleep(0.5)
             db.expire_all()               # force re-read from DB
-            ready = db.query(LearningPath).filter(
-                LearningPath.user_id == current_user.id
-            ).first()
+            ready = resolve_user_learning_path(db, current_user.id, profile, fingerprint)
             if ready:
-                path_json = json.loads(ready.path_data)
-                existing_progress = db.query(PhaseProgress).filter(
-                    PhaseProgress.user_id == current_user.id
-                ).count()
-                if existing_progress == 0:
-                    from utils.test_generator import initialize_phase_progress
-                    num_phases = len(path_json.get("learning_path", []))
-                    if num_phases > 0:
-                        initialize_phase_progress(current_user.id, num_phases, db)
-                return path_json
+                _ensure_phase_progress(db, current_user.id, ready)
+                _ensure_weekly_progress(db, current_user.id, ready)
+                return ready
         raise HTTPException(status_code=503, detail="Path generation in progress, please retry.")
 
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -333,39 +347,12 @@ CRITICAL CONTENT REQUIREMENTS:
 
     print(f"[generate-path] Stage 4 (resource attachment): {time.time() - t_stage4:.3f}s")
 
-    # Serialize final path
-    content = json.dumps(path_json)
-
-    # Upsert: another concurrent request may have already inserted a path
-    # for this user during the long pipeline. Use merge instead of add
-    # so we always update rather than crash on the unique constraint.
-    existing_path = db.query(LearningPath).filter(
-        LearningPath.user_id == current_user.id
-    ).first()
-    if existing_path:
-        existing_path.path_data = content
-    else:
-        db.add(LearningPath(user_id=current_user.id, path_data=content))
-    db.commit()
-
-    # Re-fetch the saved path to get the canonical version
-    saved_path = db.query(LearningPath).filter(
-        LearningPath.user_id == current_user.id
-    ).first()
-    path_json = json.loads(saved_path.path_data)
+    # Persist once as a shared canonical path and link this user to it.
+    path_json = store_canonical_learning_path(db, current_user.id, profile, path_json, fingerprint)
 
     # Initialize phase progress tracking
-    num_phases = len(path_json.get("learning_path", []))
-    if num_phases > 0:
-        from utils.test_generator import initialize_phase_progress
-        initialize_phase_progress(current_user.id, num_phases, db)
-        
-        # Initialize weekly task progress for each phase
-        from utils.test_generator import initialize_weekly_task_progress
-        for phase_idx, phase in enumerate(path_json.get("learning_path", [])):
-            num_weeks = phase.get("duration_weeks", len(phase.get("weekly_breakdown", [])))
-            if num_weeks > 0:
-                initialize_weekly_task_progress(current_user.id, phase_idx, num_weeks, db)
+    _ensure_phase_progress(db, current_user.id, path_json)
+    _ensure_weekly_progress(db, current_user.id, path_json)
 
     total_resources = sum(len(p.get("resources", [])) for p in path_json.get("learning_path", []))
     print(
@@ -416,11 +403,10 @@ async def get_phase_test(
         raise HTTPException(status_code=403, detail="Phase not unlocked yet")
 
     # Get learning path
-    path = db.query(LearningPath).filter(LearningPath.user_id == current_user.id).first()
-    if not path:
+    path_data = resolve_user_learning_path(db, current_user.id)
+    if not path_data:
         raise HTTPException(status_code=404, detail="Learning path not found")
 
-    path_data = json.loads(path.path_data)
     learning_path = path_data.get("learning_path", [])
 
     if phase_index >= len(learning_path):
@@ -538,9 +524,8 @@ async def submit_test(
 
             # Add phase skills to user profile
             try:
-                path = db.query(LearningPath).filter(LearningPath.user_id == current_user.id).first()
-                if path:
-                    path_data = json.loads(path.path_data)
+                path_data = resolve_user_learning_path(db, current_user.id)
+                if path_data:
                     learning_path = path_data.get("learning_path", [])
                     if phase_index < len(learning_path):
                         phase_skills = learning_path[phase_index].get("skills", [])
@@ -626,8 +611,8 @@ async def add_skill_and_regenerate_path(
         profile.skills = json.dumps(normalized)
         db.commit()
 
-    # Delete existing learning path to force regeneration
-    db.query(LearningPath).filter(LearningPath.user_id == current_user.id).delete()
+    # Delete the user's active learning-path link to force regeneration.
+    invalidate_learning_path(current_user.id, db)
     # Invalidate market insights cache (skills changed)
     db.query(MarketInsightsCache).filter(MarketInsightsCache.user_id == current_user.id).delete()
     db.commit()

@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from db.database import get_db
-from db.models import UserDB, UserProfile, LearningPath
+from db.models import UserDB, UserProfile
 from auth import get_current_user
 from groq import Groq
 from config import LLM_MODEL
+from services.learning_path_store import resolve_user_learning_path
 import os
 import json
 
@@ -30,13 +31,12 @@ async def ai_assistant(
         raise HTTPException(status_code=400, detail="Question is required")
 
     # Get user's learning path for context
-    path = db.query(LearningPath).filter(LearningPath.user_id == current_user.id).first()
+    path_data = resolve_user_learning_path(db, current_user.id)
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
 
     learning_context = ""
-    if path:
+    if path_data:
         try:
-            path_data = json.loads(path.path_data)
             meta = path_data.get("meta", {})
             phases = path_data.get("learning_path", [])
 
@@ -63,9 +63,8 @@ async def ai_assistant(
 
     # If phase_context is provided, add specific phase details
     phase_detail = ""
-    if phase_context and path:
+    if phase_context and path_data:
         try:
-            path_data = json.loads(path.path_data)
             phases = path_data.get("learning_path", [])
             idx = phase_context.get("phase_index")
             if idx is not None and idx < len(phases):
