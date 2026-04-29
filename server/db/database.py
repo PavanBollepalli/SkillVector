@@ -36,43 +36,5 @@ def init_db():
     """Initialize database tables. Ensures pgvector extension exists first."""
     with engine.connect() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        # Migrate rag_source_cache embedding column to 1024 dims (Mistral mistral-embed).
-        # create_all() never alters existing columns, so we do it explicitly.
-        # Safe to run repeatedly — no-op if already 1024 or table doesn't exist.
-        try:
-            conn.execute(text(
-                "ALTER TABLE rag_source_cache "
-                "ALTER COLUMN query_embedding TYPE vector(1024)"
-            ))
-        except Exception:
-            pass  # table doesn't exist yet — create_all() will create it correctly
-        # Add target_role column for role-scoped cache filtering.
-        # Safe to run repeatedly — no-op if column already exists.
-        try:
-            conn.execute(text(
-                "ALTER TABLE rag_source_cache "
-                "ADD COLUMN IF NOT EXISTS target_role VARCHAR NOT NULL DEFAULT ''"
-            ))
-        except Exception:
-            pass  # table doesn't exist yet — create_all() will create it correctly
-
-        # HNSW index for fast cosine similarity search on the vector cache.
-        # CREATE INDEX IF NOT EXISTS is idempotent — safe to run on every startup.
-        try:
-            conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS rag_source_cache_embedding_idx "
-                "ON rag_source_cache USING hnsw (query_embedding vector_cosine_ops)"
-            ))
-        except Exception:
-            pass  # pgvector version may not support hnsw — falls back to seq scan
-
-        # B-tree index on target_role for efficient WHERE filtering before vector search.
-        try:
-            conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS rag_source_cache_role_idx "
-                "ON rag_source_cache (target_role)"
-            ))
-        except Exception:
-            pass
         conn.commit()
     Base.metadata.create_all(bind=engine)

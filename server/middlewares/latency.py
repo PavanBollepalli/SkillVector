@@ -7,7 +7,7 @@ logger = logging.getLogger("uvicorn.error")
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
-class latency_middleware(BaseHTTPMiddleware):
+class LatencyMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         start_time = time.time()

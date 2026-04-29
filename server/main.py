@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from middlewares.latency import latency_middleware
+from middlewares.latency import LatencyMiddleware
+from middlewares.error_handler import ErrorHandlerMiddleware
 from db.database import init_db
 from market.load_onet import load_onet_data
 from config import ONET_CACHE
@@ -15,7 +16,6 @@ logging.basicConfig(
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-logger.propagate=False
 # Route imports
 from routes.auth import router as auth_router
 from routes.profile import router as profile_router
@@ -68,7 +68,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(
-    latency_middleware
+    LatencyMiddleware
+)
+app.add_middleware(
+    ErrorHandlerMiddleware
 )
 
 # Include all routers
