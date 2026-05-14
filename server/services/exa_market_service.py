@@ -68,21 +68,24 @@ def _get_exa_db_cache(role: str) -> dict | None:
 
 
 def _store_exa_db_cache(role: str, data: dict) -> None:
-    """Store to L1 database cache."""
+    """Store to L1 database cache (upsert: update if exists, insert if not)."""
     db = SessionLocal()
     try:
-        # Delete existing entry to refresh
+        serialized = json.dumps(data)
+        now = datetime.now(timezone.utc)
+
         existing = db.query(ExaMarketCache).filter(ExaMarketCache.role == role).first()
         if existing:
-            db.delete(existing)
+            # Update in-place — avoids UniqueViolation from delete+insert race
+            existing.data = serialized
+            existing.created_at = now
+        else:
+            db.add(ExaMarketCache(role=role, data=serialized, created_at=now))
 
-        entry = ExaMarketCache(
-            role=role,
-            data=json.dumps(data),
-            created_at=datetime.now(timezone.utc)
-        )
-        db.add(entry)
         db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
