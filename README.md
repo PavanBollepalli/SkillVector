@@ -23,6 +23,18 @@
 
 ---
 
+## 🎬 Launch Video
+
+<p align="center">
+  <a href="brag-output-brag/brag.mp4">
+    <img src="brag-output-brag/brag.jpg" alt="SkillVector launch video — 19 seconds" width="720" />
+  </a>
+</p>
+
+<sup>19-second trailer — "You asked to learn Python. A distributed system out." Click the poster to watch ([direct link](brag-output-brag/brag.mp4)). Rebuild it anytime with `npx hyperframes dev` in [`brag-output-brag/composition/`](brag-output-brag/composition/).</sup>
+
+---
+
 ## What is SkillVector?
 
 SkillVector is not another course recommendation engine. It is a **full-stack AI career intelligence system** that analyzes a user's current skill set, maps it against real labor market data from the U.S. Department of Labor **and real-time web intelligence via Exa**, and generates a deeply personalized, multi-phase learning roadmap — grounded in real web sources, not hallucinated content.

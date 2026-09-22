@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #F8F7F4;
+      }
+      #root {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      /* ── Typography ── */
+      .font-display { font-family: 'Syne', sans-serif; }
+      .font-body    { font-family: 'DM Sans', sans-serif; }
+      .font-mono    { font-family: 'JetBrains Mono', monospace; }
+
+      /* ── Shared backgrounds ── */
+      .bg-base    { background: #F8F7F4; }
+      .bg-surface  { background: #FFFFFF; }
+      .bg-subtle   { background: #F1EFF9; }
+
+      /* ── Grid overlay ── */
+      .grid-bg {
+        background-image:
+          linear-gradient(#E8E4F0 1px, transparent 1px),
+          linear-gradient(90deg, #E8E4F0 1px, transparent 1px);
+        background-size: 60px 60px;
+      }
+
+      /* ── Radial glows ── */
+      .glow-indigo {
+        background: radial-gradient(ellipse, rgba(79,63,240,0.18) 0%, transparent 65%);
+        filter: blur(60px);
+      }
+      .glow-sage {
+        background: radial-gradient(ellipse, rgba(46,196,160,0.15) 0%, transparent 65%);
+        filter: blur(50px);
+      }
+
+      /* ── Pill eyebrow ── */
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 100px;
+        background: #EAE7FD;
+        color: #4F3FF0;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+      }
+      .pill .dot {
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        background: #4F3FF0;
+      }
+
+      /* ── Hero display type ── */
+      .hero-line {
+        font-family: 'Syne', sans-serif;
+        font-weight: 800;
+        font-size: clamp(64px, 5.5vw, 96px);
+        letter-spacing: -0.04em;
+        line-height: 0.95;
+        color: #0F0E17;
+        text-align: center;
+        text-transform: uppercase;
+      }
+      .hero-line.gradient {
+        background: linear-gradient(135deg, #4F3FF0 0%, #2EC4A0 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      /* ── Sub text ── */
+      .sub-line {
+        font-family: 'DM Sans', sans-serif;
+        font-weight: 400;
+        font-size: clamp(18px, 1.5vw, 26px);
+        color: #3D3A4E;
+        text-align: center;
+        line-height: 1.5;
+      }
+
+      /* ── Floating stat chip ── */
+      .stat-chip {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 7px 14px;
+        border-radius: 8px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+
+      /* ── App input card ── */
+      .input-card {
+        background: rgba(255,255,255,0.9);
+        border: 1.5px solid #E8E4F0;
+        border-radius: 12px;
+        padding: 28px 32px;
+        box-shadow: 0 4px 24px rgba(15,14,23,0.08);
+        backdrop-filter: blur(12px);
+        min-width: 480px;
+      }
+      .input-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #7C7891;
+        margin-bottom: 8px;
+      }
+      .input-field {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 22px;
+        font-weight: 500;
+        color: #0F0E17;
+      }
+      .cursor {
+        width: 2px;
+        height: 1.1em;
+        background: #4F3FF0;
+        display: inline-block;
+        animation: blink 0.9s step-end infinite;
+      }
+      @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+      /* ── Generate button ── */
+      .btn-generate {
+        margin-top: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        background: #4F3FF0;
+        color: #F8F7F4;
+        border-radius: 8px;
+        padding: 13px 28px;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: default;
+        box-shadow: 0 8px 30px rgba(79,63,240,0.3);
+        white-space: nowrap;
+      }
+      .btn-generate svg { transition: transform 0.25s; }
+
+      /* ── Pipeline layer cards ── */
+      .layer-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #FFFFFF;
+        border: 1.5px solid #E8E4F0;
+        border-radius: 10px;
+        padding: 14px 22px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        font-weight: 500;
+        color: #0F0E17;
+        box-shadow: 0 4px 16px rgba(15,14,23,0.07);
+      }
+      .layer-card .dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .layer-card.l0 { border-color: #EAE7FD; }
+      .layer-card.l0 .dot { background: #4F3FF0; box-shadow: 0 0 8px rgba(79,63,240,0.6); }
+      .layer-card.l1 { border-color: #E8FBF6; }
+      .layer-card.l1 .dot { background: #2EC4A0; box-shadow: 0 0 8px rgba(46,196,160,0.6); }
+      .layer-card.l2 { border-color: #FFF0F0; }
+      .layer-card.l2 .dot { background: #FF5C5C; box-shadow: 0 0 8px rgba(255,92,92,0.5); }
+
+      /* ── Embeddings counter ── */
+      .embed-counter {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        font-weight: 500;
+        color: #7C7891;
+        letter-spacing: 0.05em;
+      }
+      .embed-counter span { color: #4F3FF0; font-weight: 700; }
+
+      /* ── Phase cards ── */
+      .phase-card {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background: #FFFFFF;
+        border: 1.5px solid #E8E4F0;
+        border-radius: 10px;
+        padding: 14px 22px;
+        box-shadow: 0 4px 16px rgba(15,14,23,0.07);
+        width: 100%;
+        max-width: 620px;
+      }
+      .phase-number {
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .phase-card:nth-child(1) .phase-number { background: #EAE7FD; color: #4F3FF0; }
+      .phase-card:nth-child(2) .phase-number { background: #E8FBF6; color: #2EC4A0; }
+      .phase-card:nth-child(3) .phase-number { background: #FFF0F0; color: #FF5C5C; }
+      .phase-title {
+        font-family: 'DM Sans', sans-serif;
+        font-size: 18px;
+        font-weight: 600;
+        color: #0F0E17;
+        flex: 1;
+      }
+      .resource-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        border-radius: 100px;
+        background: #F1EFF9;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        color: #4F3FF0;
+        white-space: nowrap;
+      }
+
+      /* ── Roadmap card ── */
+      .roadmap-card {
+        background: rgba(255,255,255,0.92);
+        border: 1.5px solid #E8E4F0;
+        border-radius: 14px;
+        padding: 28px 32px;
+        box-shadow: 0 8px 32px rgba(15,14,23,0.09);
+        backdrop-filter: blur(12px);
+        min-width: 640px;
+      }
+      .roadmap-header {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: #7C7891;
+        margin-bottom: 18px;
+      }
+      .roadmap-phases {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      /* ── Anti-cheat player ── */
+      .player-card {
+        background: #0F0E17;
+        border-radius: 14px;
+        padding: 28px 32px;
+        width: 540px;
+        box-shadow: 0 8px 32px rgba(15,14,23,0.3);
+      }
+      .player-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      .player-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: rgba(248,247,244,0.5);
+      }
+      .heartbeat-dot {
+        width: 10px; height: 10px;
+        border-radius: 50%;
+        background: #FF5C5C;
+        animation: heartbeat 1.1s ease-in-out infinite;
+      }
+      @keyframes heartbeat {
+        0%,100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(255,92,92,0.4); }
+        50%      { transform: scale(1.3); opacity: 0.8; box-shadow: 0 0 0 8px rgba(255,92,92,0); }
+      }
+      .player-progress {
+        width: 100%;
+        height: 4px;
+        background: rgba(255,255,255,0.12);
+        border-radius: 2px;
+        margin-bottom: 14px;
+        overflow: hidden;
+      }
+      .player-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #4F3FF0, #2EC4A0);
+        border-radius: 2px;
+        width: 34%;
+      }
+      .player-watch {
+        font-family: 'DM Sans', sans-serif;
+        font-size: 14px;
+        color: rgba(248,247,244,0.6);
+        margin-bottom: 18px;
+      }
+      .player-watch strong { color: #2EC4A0; font-weight: 600; }
+      .cheat-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(255,92,92,0.12);
+        border: 1.5px solid rgba(255,92,92,0.5);
+        border-radius: 10px;
+        padding: 14px 18px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        font-weight: 600;
+        color: #FF5C5C;
+      }
+
+      /* ── Logo card ── */
+      .logo-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: linear-gradient(135deg, #4F3FF0 0%, #2EC4A0 100%);
+        border-radius: 18px;
+        padding: 48px 72px;
+        box-shadow: 0 16px 60px rgba(79,63,240,0.4);
+        text-align: center;
+      }
+      .logo-name {
+        font-family: 'Syne', sans-serif;
+        font-weight: 800;
+        font-size: clamp(72px, 7vw, 108px);
+        letter-spacing: -0.04em;
+        color: #F8F7F4;
+        line-height: 0.95;
+      }
+      .logo-tagline {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: clamp(12px, 1vw, 16px);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(248,247,244,0.85);
+        margin-top: 14px;
+      }
+
+      /* ── Final punchline ── */
+      .punchline {
+        font-family: 'DM Sans', sans-serif;
+        font-size: clamp(18px, 1.5vw, 24px);
+        font-weight: 400;
+        color: #3D3A4E;
+        text-align: center;
+        margin-top: 24px;
+        letter-spacing: 0.01em;
+      }
+
+      /* ── Timed elements must have clip class ── */
+      .clip { overflow: hidden; }
+      .opacity-0 { opacity: 0; }
+      .opacity-1 { opacity: 1; }
+      /* Audio-reactive glow fixed in DOM, animated by GSAP via audio data */
+      #audio-glow {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        background: radial-gradient(ellipse 60% 60% at 50% 40%, rgba(79,63,240,0.07) 0%, transparent 70%);
+        mix-blend-mode: multiply;
+      }
+
+    </style>
+  </head>
+  <body>
+
+    <!-- ── ROOT TIMELINE WRAPPER ── -->
+    <div id="root"
+         data-composition-id="root"
+         data-start="0"
+         data-duration="19"
+         data-width="1920"
+         data-height="1080">
+
+      <!-- ════════════════════════════════════════
+           SCENE 1 — HOOK  (0.0 – 3.0s)
+      ════════════════════════════════════════ -->
+      <div id="scene1"
+           class="scene bg-base grid-bg clip"
+           data-start="0"
+           data-duration="3"
+           style="position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+
+        <div style="position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:900px;height:700px;"
+             class="glow-indigo opacity-50"></div>
+        <div style="position:absolute;bottom:-150px;left:50%;transform:translateX(-50%);width:700px;height:500px;"
+             class="glow-sage opacity-40"></div>
+
+        <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center;gap:0">
+
+          <div id="s1-eyebrow" class="pill clip opacity-0" style="margin-bottom:28px;">
+            <span class="dot"></span>Production RAG Pipeline
+          </div>
+
+          <h1 id="s1-headline" class="hero-line clip opacity-0">
+            YOU ASKED TO<br/>
+            <span class="gradient">LEARN PYTHON.</span>
+          </h1>
+
+          <p id="s1-sub" class="sub-line clip opacity-0"
+             style="margin-top:24px;max-width:520px;">
+            One line in.<br/>
+            A distributed system out.
+          </p>
+        </div>
+
+        <div id="s1-chip1" class="stat-chip clip opacity-0"
+             style="position:absolute;top:18%;left:8%;background:#FFFFFF;border:1.5px solid #E8E4F0;color:#0F0E17;box-shadow:0 4px 16px rgba(15,14,23,0.05);">
+          ⚡ 2× faster
+        </div>
+        <div id="s1-chip2" class="stat-chip clip opacity-0"
+             style="position:absolute;top:22%;right:10%;background:#EAE7FD;border:1.5px solid rgba(79,63,240,0.2);color:#4F3FF0;">
+          ✦ 98% accuracy
+        </div>
+        <div id="s1-chip3" class="stat-chip clip opacity-0"
+             style="position:absolute;bottom:22%;left:12%;background:#E8FBF6;border:1.5px solid rgba(46,196,160,0.2);color:#2EC4A0;">
+          ↗ +340% ROI
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════
+           SCENE 2 — THE PIPELINE FIRES  (3.0 – 7.2s)
+      ════════════════════════════════════════ -->
+      <div id="scene2"
+           class="scene bg-base grid-bg clip"
+           data-start="3"
+           data-duration="4.2"
+           style="position:absolute;inset:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;">
+
+        <div id="s2-input-card" class="input-card clip opacity-0">
+          <div class="input-label">Desired Role</div>
+          <div class="input-field">
+            <span id="s2-typed">_</span><span class="cursor"></span>
+          </div>
+          <div id="s2-btn" class="btn-generate clip opacity-0">
+            Generate Path
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+            </svg>
+          </div>
+        </div>
+
+        <div id="s2-layers" style="display:flex;gap:14px;align-items:center;">
+          <div id="s2-l0" class="layer-card l0 clip opacity-0">
+            <span class="dot"></span>
+            L0 in-memory &nbsp;<span style="color:#4F3FF0;font-weight:700;">~0ms</span>
+          </div>
+          <div id="s2-arrow" class="clip opacity-0" style="font-size:20px;color:#7C7891;opacity:0;">→</div>
+          <div id="s2-l1" class="layer-card l1 clip opacity-0">
+            <span class="dot"></span>
+            L1 pgvector
+          </div>
+          <div id="s2-arrow2" class="clip opacity-0" style="font-size:20px;color:#7C7891;opacity:0;">→</div>
+          <div id="s2-l2" class="layer-card l2 clip opacity-0">
+            <span class="dot"></span>
+            L2 live web
+          </div>
+        </div>
+
+        <div id="s2-counter" class="embed-counter clip opacity-0">
+          Embedding space:&nbsp;
+          <span id="s2-count">0</span>-D &nbsp;
+          <span style="color:#2EC4A0;">✓</span>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════
+           SCENE 3 — THE ROADMAP  (7.2 – 11.4s)
+      ════════════════════════════════════════ -->
+      <div id="scene3"
+           class="scene bg-base grid-bg clip"
+           data-start="7.2"
+           data-duration="4.2"
+           style="position:absolute;inset:0;z-index:8;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:800px;height:600px;"
+             class="glow-indigo opacity-30"></div>
+
+        <div id="s3-card" class="roadmap-card clip opacity-0">
+          <div class="roadmap-header">Your AI-Curated Learning Path</div>
+          <div class="roadmap-phases">
+            <div id="s3-p1" class="phase-card clip opacity-0">
+              <div class="phase-number">01</div>
+              <div class="phase-title">Python Foundations</div>
+            </div>
+            <div id="s3-p2" class="phase-card clip opacity-0">
+              <div class="phase-number">02</div>
+              <div class="phase-title">OOP + Data Structures</div>
+            </div>
+            <div id="s3-p3" class="phase-card clip opacity-0">
+              <div class="phase-number">03</div>
+              <div class="phase-title">Real-World Projects</div>
+            </div>
+          </div>
+          <div id="s3-resource" class="resource-chip clip opacity-0">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            5 articles &nbsp;·&nbsp; 5 videos
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════
+           SCENE 4 — ANTI-CHEAT PLAYER  (11.4 – 14.6s)
+      ════════════════════════════════════════ -->
+      <div id="scene4"
+           class="scene clip"
+           data-start="11.4"
+           data-duration="3.2"
+           style="position:absolute;inset:0;z-index:7;background:#0F0E17;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+
+        <div id="s4-player" class="player-card clip opacity-0">
+          <div class="player-header">
+            <div class="heartbeat-dot"></div>
+            <div class="player-label">SkillVector · Assignment Player</div>
+          </div>
+          <div class="player-progress">
+            <div class="player-progress-fill"></div>
+          </div>
+          <div class="player-watch">
+            Legitimate watch time:&nbsp;<strong>34%</strong>
+          </div>
+          <div id="s4-cheat" class="cheat-card clip opacity-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            SEEK-SKIP FLAGGED
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════
+           SCENE 5 — OUTRO  (14.6 – 19.0s)
+      ════════════════════════════════════════ -->
+      <div id="scene5"
+           class="scene clip"
+           data-start="14.6"
+           data-duration="4.4"
+           style="position:absolute;inset:0;z-index:6;background:#F8F7F4;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+
+        <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(79,63,240,0.12) 0%,rgba(46,196,160,0.08) 100%);"></div>
+
+        <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;">
+          <div id="s5-logo" class="logo-card clip opacity-0">
+            <div class="logo-name">SKILLVECTOR</div>
+            <div class="logo-tagline">AI-POWERED CAREER INTELLIGENCE</div>
+          </div>
+          <p id="s5-punch" class="punchline clip opacity-0">
+            From zero to job-ready.<br/>
+            Please don't skip the video.
+          </p>
+        </div>
+      </div>
+
+    </div><!-- end #root -->
+
+    <!-- ═══════════════════════════════════════════════
+         AUDIO TRACKS
+         All audio elements need class="clip" data-start data-duration
+    ═══════════════════════════════════════════════ -->
+
+    <!-- Music bed — volume 0.30, bed throughout -->
+    <audio id="audio-1" class="clip"
+           data-start="0" data-duration="19"
+           data-track-index="10" data-volume="0.30"
+           src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3"></audio>
+
+    <!-- Scene 1 — hook impact bell (~0.85s) -->
+    <audio id="audio-2" class="clip"
+           data-start="0.85" data-duration="0.6"
+           data-track-index="11" data-volume="0.70"
+           src="assets/sfx/impact/impactBell_heavy_000.ogg"></audio>
+
+    <!-- Scene 2 — keyboard ticks (characters typed, 110ms apart) -->
+    <audio id="audio-3" class="clip" data-start="3.5"  data-duration="0.1" data-track-index="12" data-volume="0.45" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+    <audio id="audio-4" class="clip" data-start="3.61" data-duration="0.1" data-track-index="12" data-volume="0.40" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+    <audio id="audio-5" class="clip" data-start="3.72" data-duration="0.1" data-track-index="12" data-volume="0.45" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+    <audio id="audio-6" class="clip" data-start="3.83" data-duration="0.1" data-track-index="12" data-volume="0.40" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+    <audio id="audio-7" class="clip" data-start="3.94" data-duration="0.1" data-track-index="12" data-volume="0.45" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+    <audio id="audio-8" class="clip" data-start="4.05" data-duration="0.1" data-track-index="12" data-volume="0.40" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+    <audio id="audio-9" class="clip" data-start="4.16" data-duration="0.1" data-track-index="12" data-volume="0.45" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+    <audio id="audio-10" class="clip" data-start="4.27" data-duration="0.1" data-track-index="12" data-volume="0.40" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+    <audio id="audio-11" class="clip" data-start="4.38" data-duration="0.1" data-track-index="12" data-volume="0.45" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+    <audio id="audio-12" class="clip" data-start="4.49" data-duration="0.1" data-track-index="12" data-volume="0.40" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+    <audio id="audio-13" class="clip" data-start="4.60" data-duration="0.1" data-track-index="12" data-volume="0.45" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+    <audio id="audio-14" class="clip" data-start="4.71" data-duration="0.1" data-track-index="12" data-volume="0.40" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+    <audio id="audio-15" class="clip" data-start="4.82" data-duration="0.1" data-track-index="12" data-volume="0.45" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+    <audio id="audio-16" class="clip" data-start="4.93" data-duration="0.1" data-track-index="12" data-volume="0.40" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+    <audio id="audio-17" class="clip" data-start="5.04" data-duration="0.1" data-track-index="12" data-volume="0.45" src="assets/sfx/keyboard/keypress-001.wav"></audio>
+
+    <!-- Scene 2 — Generate button click -->
+    <audio id="audio-18" class="clip" data-start="5.2" data-duration="0.15" data-track-index="13" data-volume="0.65" src="assets/sfx/interface/click_003.ogg"></audio>
+
+    <!-- Scene 2 — pipeline layer card hits (beat-grid: ~5.5 / ~6.0 / ~6.55) -->
+    <audio id="audio-19" class="clip" data-start="5.5"  data-duration="0.3" data-track-index="13" data-volume="0.55" src="assets/sfx/impact/impactSoft_medium_001.ogg"></audio>
+    <audio id="audio-20" class="clip" data-start="6.0"  data-duration="0.3" data-track-index="13" data-volume="0.55" src="assets/sfx/impact/impactSoft_medium_002.ogg"></audio>
+    <audio id="audio-21" class="clip" data-start="6.55" data-duration="0.3" data-track-index="13" data-volume="0.55" src="assets/sfx/impact/impactSoft_medium_001.ogg"></audio>
+
+    <!-- Scene 3 — phase cards snap in (beat-grid: 8.74 / 9.29 / 9.83 / 10.38) -->
+    <audio id="audio-22" class="clip" data-start="8.74"  data-duration="0.3" data-track-index="14" data-volume="0.60" src="assets/sfx/casino/card-slide-1.ogg"></audio>
+    <audio id="audio-23" class="clip" data-start="9.29"  data-duration="0.3" data-track-index="14" data-volume="0.55" src="assets/sfx/casino/card-slide-1.ogg"></audio>
+    <audio id="audio-24" class="clip" data-start="9.83"  data-duration="0.3" data-track-index="14" data-volume="0.60" src="assets/sfx/casino/card-slide-1.ogg"></audio>
+    <audio id="audio-25" class="clip" data-start="10.38" data-duration="0.25" data-track-index="14" data-volume="0.50" src="assets/sfx/interface/bong_001.ogg"></audio>
+
+    <!-- Scene 4 — heartbeat tick + cheat flag glitch -->
+    <audio id="audio-26" class="clip" data-start="12.0" data-duration="0.2" data-track-index="15" data-volume="0.30" src="assets/sfx/interface/click_003.ogg"></audio>
+    <audio id="audio-27" class="clip" data-start="13.6" data-duration="0.3" data-track-index="15" data-volume="0.65" src="assets/sfx/interface/glitch_002.ogg"></audio>
+
+    <!-- Scene 5 — logo bell (beat-locked to ~17.47s strong cue) -->
+    <audio id="audio-28" class="clip" data-start="17.40" data-duration="0.8" data-track-index="16" data-volume="0.72" src="assets/sfx/impact/impactBell_heavy_000.ogg"></audio>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+
+      // ══════════════════════════════════════════════
+      //  ROOT TIMELINE — single GSAP timeline drives all 5 scenes
+      //  Each scene's animations are added at its scene start offset.
+      // ══════════════════════════════════════════════
+      const tl = gsap.timeline({ paused: true });
+
+      // ─── SCENE 1 — HOOK  (0.0 – 3.0s) ───
+
+      // Eyebrow pill fades in at ~0.1s
+      tl.to('#s1-eyebrow', { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 0.1);
+
+      // Headline slams — beat-locked to ~0.85s (near strong cue)
+      tl.to('#s1-headline', { opacity: 1, scale: 1, y: 0, duration: 0.5, ease: 'power4.out' }, 0.85);
+
+      // Sub-line fades up at ~1.6s
+      tl.to('#s1-sub', { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }, 1.6);
+
+      // Stat chips float in one by one
+      tl.to('#s1-chip1', { opacity: 1, y: 0, duration: 0.4, ease: 'back.out(1.4)' }, 1.85);
+      tl.to('#s1-chip2', { opacity: 1, y: 0, duration: 0.4, ease: 'back.out(1.4)' }, 2.05);
+      tl.to('#s1-chip3', { opacity: 1, y: 0, duration: 0.4, ease: 'back.out(1.4)' }, 2.25);
+
+      // ─── SCENE 2 — PIPELINE  (3.0 – 7.2s) ───
+
+      // Input card slides up at scene start
+      tl.to('#s2-input-card', { opacity: 1, y: 0, duration: 0.45, ease: 'power3.out' }, 3.0);
+
+      // Typed text: step through characters at 110ms intervals
+      tl.add(function() {
+        const el = document.getElementById('s2-typed');
+        const text = 'Python Developer';
+        var i = 0;
+        function next() {
+          if (i < text.length) {
+            el.textContent = text.substring(0, i + 1);
+            i++;
+            setTimeout(next, 110);
+          }
+        }
+        next();
+      }, 3.5);
+
+      // Generate button appears after typing done (~5.2s) and presses
+      tl.to('#s2-btn', { opacity: 1, duration: 0.2 }, 5.2);
+      tl.to('#s2-btn', { scale: 0.95, duration: 0.08, yoyo: true, repeat: 1, ease: 'power2.inOut' }, 5.35);
+
+      // Layer cards snap in — beat-grid: l0 ~5.5s, l1 ~6.0s, l2 ~6.55s
+      tl.to('#s2-arrow',  { opacity: 1, duration: 0.15 }, 5.35);
+      tl.to('#s2-l0',      { opacity: 1, scale: 1, y: 0, duration: 0.28, ease: 'back.out(1.4)' }, 5.5);
+      tl.to('#s2-arrow2', { opacity: 1, duration: 0.15 }, 5.85);
+      tl.to('#s2-l1',      { opacity: 1, scale: 1, y: 0, duration: 0.28, ease: 'back.out(1.4)' }, 6.0);
+      tl.to('#s2-l2',      { opacity: 1, scale: 1, y: 0, duration: 0.28, ease: 'back.out(1.4)' }, 6.55);
+
+      // Embeddings counter 0 → 1024
+      tl.to('#s2-counter', { opacity: 1, duration: 0.25 }, 6.9);
+      tl.add(function() {
+        const counter = { val: 0 };
+        gsap.to(counter, {
+          val: 1024,
+          duration: 0.75,
+          ease: 'power2.out',
+          onUpdate: function() {
+            var el = document.getElementById('s2-count');
+            if (el) el.textContent = Math.round(counter.val);
+          }
+        });
+      }, 6.9);
+
+      // ─── SCENE 3 — ROADMAP  (7.2 – 11.4s) ───
+
+      // Roadmap card appears
+      tl.to('#s3-card', { opacity: 1, y: 0, duration: 0.4, ease: 'power3.out' }, 7.2);
+
+      // Phase rows snap in — beat-grid: p1 ~8.74s, p2 ~9.29s, p3 ~9.83s
+      tl.to('#s3-p1', { opacity: 1, x: 0, duration: 0.32, ease: 'back.out(1.3)' }, 8.74);
+      tl.to('#s3-p2', { opacity: 1, x: 0, duration: 0.32, ease: 'back.out(1.3)' }, 9.29);
+      tl.to('#s3-p3', { opacity: 1, x: 0, duration: 0.32, ease: 'back.out(1.3)' }, 9.83);
+
+      // Resource chip pops at ~10.38s
+      tl.to('#s3-resource', { opacity: 1, scale: 1, duration: 0.28, ease: 'back.out(2)' }, 10.38);
+
+      // ─── SCENE 4 — ANTI-CHEAT PLAYER  (11.4 – 14.6s) ───
+
+      // Player card slides in
+      tl.to('#s4-player', { opacity: 1, y: 0, duration: 0.4, ease: 'power3.out' }, 11.4);
+
+      // Cheat flag cracks in
+      tl.to('#s4-cheat', { opacity: 1, x: 0, duration: 0.32, ease: 'back.out(1.6)' }, 13.6);
+
+      // ─── SCENE 5 — OUTRO  (14.6 – 19.0s) ───
+
+      // Logo slams in — beat-locked to ~17.47s strong cue
+      tl.to('#s5-logo', { opacity: 1, scale: 1, duration: 0.5, ease: 'power4.out' }, 17.40);
+
+      // Punchline fades in
+      tl.to('#s5-punch', { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, 18.2);
+
+      // ─── Register the single root timeline ───
+      window.__timelines['root'] = tl;
+
+      // ─── Set initial states for animated elements ───
+      // Elements animate from y/x/scale offsets to natural position
+      gsap.set('#s1-eyebrow, #s1-chip1, #s1-chip2, #s1-chip3', { y: 30 });
+      gsap.set('#s1-headline, #s1-sub', { scale: 0.92, y: 28 });
+      gsap.set('#s2-input-card, #s2-btn, #s2-l0, #s2-l1, #s2-l2', { y: 22 });
+      gsap.set('#s3-card, #s3-p1, #s3-p2, #s3-p3, #s3-resource', { y: 24 });
+      gsap.set('#s4-player, #s4-cheat', { y: 22 });
+      gsap.set('#s5-logo', { scale: 0.86 });
+      gsap.set('#s5-punch', { y: 12 });
+
+      // Elements start invisible (opacity 0)
+      gsap.set('#s1-eyebrow, #s1-headline, #s1-sub, #s1-chip1, #s1-chip2, #s1-chip3', { opacity: 0 });
+      gsap.set('#s2-input-card, #s2-btn, #s2-l0, #s2-l1, #s2-l2, #s2-counter', { opacity: 0 });
+      gsap.set('#s3-card, #s3-p1, #s3-p2, #s3-p3, #s3-resource', { opacity: 0 });
+      gsap.set('#s4-player, #s4-cheat', { opacity: 0 });
+      gsap.set('#s5-logo, #s5-punch', { opacity: 0 });
+
+      // ─── Seek to frame 0 so GSAP initial state is captured ───
+      tl.seek(0);
+
+    </script>
+  </body>
+</html>

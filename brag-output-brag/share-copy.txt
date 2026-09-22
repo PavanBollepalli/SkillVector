@@ -1,0 +1,54 @@
+SKILLVECTOR — SHARE COPY
+========================
+19s · 1920×1080 · brag-output-brag/brag.mp4
+Poster: brag-output-brag/brag.jpg (baked as frame 0)
+
+SHORT (X / LinkedIn / Reddit)
+------------------------------
+You asked to learn Python. You got a distributed system.
+
+SkillVector runs your goal through a 3-layer RAG pipeline —
+in-memory cache → pgvector hybrid search (1024-dim embeddings) →
+live web retrieval — and hands back a week-by-week roadmap.
+
+Then the course player catches you skipping ahead.
+
+No waitlist. Just a prompt.
+
+LONG (GitHub README / blog / Show HN)
+--------------------------------------
+YOU ASKED TO LEARN PYTHON.
+One line in. A distributed system out.
+
+SkillVector is an AI career-intelligence platform built on:
+
+  · Llama 3.3 70B reasoning over real labor-market data
+  · A 3-layer retrieval pipeline: L0 in-memory → L1 pgvector
+    HNSW hybrid search (Mistral 1024-dim) → L2 Tavily live fetch
+  · O*NET 29.0 — the U.S. Dept. of Labor's occupational database,
+    1,000+ occupations, 19,000+ skill ratings
+  · Advisory-lock concurrency, batched embeddings, 5-layer caching
+  · An anti-cheat video player with heartbeat tracking and
+    seek-skip detection — because yes, we built that too
+
+Ask for a skill. Get a week-by-week roadmap, a skill-gap analysis,
+and curated resources backed by live market data.
+
+Built with FastAPI, Next.js 16, PostgreSQL + pgvector, and an
+unhealthy amount of cache invalidation.
+
+Try it. Break it. Then tell us what to build next.
+
+TAGS / HASHTAGS
+----------------
+#BuildInPublic #AI #RAG #pgvector #PostgreSQL #FastAPI #NextJS
+#OpenSource #DevCommunity #IndieHackers
+
+ALT TEXT (for accessibility)
+------------------------------
+19-second launch video for SkillVector. Opens with the words
+"YOU ASKED TO LEARN PYTHON." slamming onto a cream background,
+then shows the app's retrieval pipeline firing through three
+caching layers, a generated week-by-week learning roadmap, and
+an anti-cheat video player flagging a seek-skip, ending on the
+SkillVector wordmark over an indigo-to-teal gradient.
