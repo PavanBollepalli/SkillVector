@@ -10,7 +10,9 @@ if not db_uri:
 
 # Supabase (and some platforms) may give 'postgres://' — SQLAlchemy requires 'postgresql://'
 if db_uri.startswith("postgres://"):
-    db_uri = db_uri.replace("postgres://", "postgresql://", 1)
+    db_uri = db_uri.replace("postgres://", "postgresql+psycopg2://", 1)
+elif db_uri.startswith("postgresql://"):
+    db_uri = db_uri.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 engine = create_engine(
     db_uri,
