@@ -19,7 +19,7 @@ import json
 import hashlib
 from datetime import datetime, timedelta, timezone
 from groq import Groq
-from config import LLM_TEMPERATURE
+from config import LLM_TEMPERATURE, PHASE_QUERY_MODEL
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -225,7 +225,7 @@ Output format:
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model=PHASE_QUERY_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=LLM_TEMPERATURE,
             response_format={"type": "json_object"},

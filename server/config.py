@@ -12,11 +12,11 @@ RAG_MAX_SOURCES = 40
 RAG_CONTEXT_CHAR_LIMIT = 12000
 
 # LLM defaults
-LLM_MODEL = "llama-3.3-70b-versatile"
+LLM_MODEL = "openai/gpt-oss-120b"
 LLM_TEMPERATURE = 0.2
 
 # Phase query generator (fast model for search query generation)
-PHASE_QUERY_MODEL = "llama-3.1-8b-instant"
+PHASE_QUERY_MODEL = "openai/gpt-oss-20b"
 PHASE_RESOURCES_PER_TYPE = {"articles": 3, "books": 2, "videos": 3}
 
 # Shared learning path cache

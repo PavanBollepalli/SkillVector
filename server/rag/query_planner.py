@@ -4,7 +4,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 from groq import Groq
 from dotenv import load_dotenv
-from config import LLM_TEMPERATURE
+from config import LLM_TEMPERATURE, PHASE_QUERY_MODEL
 from rag.vector_cache import QUERY_PLAN_TTL_DAYS
 import time
 
@@ -83,7 +83,7 @@ Rules:
 """
 
     response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model=PHASE_QUERY_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=LLM_TEMPERATURE,
     )

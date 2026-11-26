@@ -12,7 +12,7 @@
 <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react" />
 <img src="https://img.shields.io/badge/FastAPI-0.134-009688?logo=fastapi" />
 <img src="https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql" />
-<img src="https://img.shields.io/badge/Llama%203.3-70B-purple" />
+<img src="https://img.shields.io/badge/GPT--OSS-120B-purple" />
 <img src="https://img.shields.io/badge/Mistral-Embed-FF7000" />
 <img src="https://img.shields.io/badge/O*NET-29.0-orange" />
 <img src="https://img.shields.io/badge/Exa-Answer%20API-blue" />
@@ -52,7 +52,7 @@ SkillVector is not another course recommendation engine. It is a **full-stack AI
 | **Frontend** | Next.js 16, React 19, TypeScript, Tailwind v4, React Three Fiber | SPA with 3D landing, profile dashboard, learning viewer, market insights, admin panel |
 | **Backend** | FastAPI, Python 3.13, SQLAlchemy 2.0, Pydantic v2 | REST API with JWT auth, two-stage RAG pipeline, LLM orchestration, O\*NET + Exa integration |
 | **Data** | PostgreSQL + pgvector (Supabase), HNSW indexes | 18 tables, hybrid vector search, multi-layer TTL caching, advisory locks |
-| **AI / LLM** | Groq (Llama 3.3 70B, Llama 3.1 8B, Compound), Mistral (embeddings) | Multi-model orchestration with intelligent fallbacks and model-specific routing |
+| **AI / LLM** | Groq (GPT-OSS 120B, GPT-OSS 20B, Compound), Mistral (embeddings) | Multi-model orchestration with intelligent fallbacks and model-specific routing |
 | **Web Search** | Tavily (articles/docs), YouTube Data API v3 (videos/playlists) | Dual-channel retrieval with language-aware routing |
 | **Market Data** | O\*NET 29.0 (5 datasets, 1,000+ occupations) + Exa Answer API | SOC code matching, Hot Technology extraction, real-time salary/demand/growth data |
 
@@ -73,7 +73,7 @@ STAGE 3 → Batch Retriever fetches resources via 3-layer cache (L0 → L1 → L
 STAGE 4 → Resources attached to phases with type-aware deduplication
 ```
 
-#### Stage 1: Path Structure Generation (Llama 3.3 70B)
+#### Stage 1: Path Structure Generation (GPT-OSS 120B)
 
 The LLM receives a rich context prompt built from:
 - **O\*NET occupational data** — knowledge domains, work activities, required technologies (Hot Tech prioritized)
@@ -83,7 +83,7 @@ The LLM receives a rich context prompt built from:
 
 The output is a structured JSON learning path with empty resource arrays (populated in Stage 3).
 
-#### Stage 2: Phase Query Generator (Llama 3.1 8B Instant)
+#### Stage 2: Phase Query Generator (GPT-OSS 20B)
 
 A fast, lightweight LLM generates two query arrays per phase:
 
@@ -208,7 +208,7 @@ O\*NET lookup + Exa data + extracted skills are combined into a single `role_con
 - **Context-aware** — injected with learning path phases, current skills, desired role, and active progress
 - Maintains **conversation history** (last 10 messages)
 - Returns answers with **web source citations**
-- **Graceful fallback** — auto-switches to Llama 3.3 70B if Compound model fails
+- **Graceful fallback** — auto-switches to GPT-OSS 120B if Compound model fails
 
 ---
 
@@ -317,7 +317,7 @@ All in-memory caches use bounded dicts with LRU eviction. All database caches us
 | **Database** | PostgreSQL + pgvector (Supabase) | 16 |
 | **Vector Search** | pgvector with HNSW indexes | 0.3.6 |
 | **Embeddings** | Mistral Embed (1024-dim) | 1.12 |
-| **LLM** | Groq — Llama 3.3 70B, Llama 3.1 8B Instant, Groq Compound | 1.0 |
+| **LLM** | Groq — GPT-OSS 120B, GPT-OSS 20B, Groq Compound | 1.0 |
 | **Web Search** | Tavily Search API | — |
 | **Video Search** | YouTube Data API v3 | — |
 | **Real-Time Market** | Exa Answer API (exa-py) | — |
@@ -516,7 +516,7 @@ npm run dev
 |----------|-------------|
 | `DATABASE_URL` | PostgreSQL connection string (with pgvector) |
 | `SECRET_KEY` | JWT signing secret |
-| `GROQ_API_KEY` | Groq API key for Llama 3.3 70B + Compound |
+| `GROQ_API_KEY` | Groq API key for GPT-OSS models + Compound |
 | `MISTRAL_API_KEY` | Mistral API key for embeddings |
 | `TAVILY_API_KEY` | Tavily Search API key |
 | `EXA_API_KEY` | Exa API key for real-time market data |
@@ -550,7 +550,7 @@ npm run dev
 | **O\*NET over custom datasets** | Government-maintained, 1,000+ occupations, free, updated quarterly |
 | **Server-side test answers** | Anti-cheat: answers revealed only after submission |
 | **OpenTelemetry tracing** | Production observability for LLM latency and RAG pipeline performance |
-| **Multi-model orchestration** | Groq Compound for chat (web search), Llama 3.3 70B for generation, Llama 3.1 8B for queries, Mistral for embeddings — each model chosen for its strength |
+| **Multi-model orchestration** | Groq Compound for chat (web search), GPT-OSS 120B for generation, GPT-OSS 20B for queries, Mistral for embeddings — each model chosen for its strength |
 
 ---
 
